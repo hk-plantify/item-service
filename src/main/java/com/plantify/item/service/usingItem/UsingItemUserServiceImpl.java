@@ -27,7 +27,7 @@ public class UsingItemUserServiceImpl implements UsingItemUserService {
     @Override
     public List<UsingItemOutput> getAllUsingItemsByUser() {
         Long userId = userInfoProvider.getUserInfo().userId();
-        return usingItemRepository.findByUserId(userId)
+        return usingItemRepository.findByUserIdWithItem(userId)
                 .stream()
                 .map(UsingItemOutput::from)
                 .toList();
