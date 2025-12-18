@@ -64,7 +64,7 @@ public class ItemServiceImpl implements ItemService {
         Long totalPrice = item.getPrice() * request.quantity();
 
         try {
-            CashRequest cashRequest = new CashRequest(userId, totalPrice, "USE");
+            CashRequest cashRequest = new CashRequest(totalPrice);
             cashServiceClient.buyByCash(cashRequest).getData();
         } catch (ApplicationException ae) {
             throw new ApplicationException(CashErrorCode.INSUFFICIENT_BALANCE);
