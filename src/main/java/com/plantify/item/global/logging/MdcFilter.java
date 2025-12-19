@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -13,6 +14,9 @@ import java.util.UUID;
 
 @Component
 public class MdcFilter extends OncePerRequestFilter {
+
+    @Value("${spring.application.name}")
+    private String serviceName;
 
     private static final String REQUEST_ID = "X-Request-Id";
 
@@ -30,7 +34,7 @@ public class MdcFilter extends OncePerRequestFilter {
             }
 
             MDC.put("requestId", requestId);
-            MDC.put("service", "item");
+            MDC.put("service", serviceName);
 
             filterChain.doFilter(request, response);
         } finally {
