@@ -51,7 +51,7 @@ public class UsingItemServiceImpl implements UsingItemService {
 
     @Override
     public List<UsingItemAdminResponse> getAllUsingItemsByUserId(Long userId) {
-        List<UsingItem> usingItems = usingItemRepository.findByUserId(userId);
+        List<UsingItem> usingItems = usingItemRepository.findByUserIdWithMyItem(userId);
         return usingItems
                 .stream()
                 .map(UsingItemAdminResponse::from)

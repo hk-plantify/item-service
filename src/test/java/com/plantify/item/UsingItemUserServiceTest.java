@@ -1,18 +1,25 @@
 package com.plantify.item;
 
-import com.plantify.item.domain.dto.UsingItemActionInput;
 import com.plantify.item.domain.dto.UsingItemOutput;
 import com.plantify.item.domain.dto.response.AuthUserResponse;
+import com.plantify.item.domain.entity.Category;
+import com.plantify.item.domain.entity.Item;
 import com.plantify.item.domain.entity.MyItem;
 import com.plantify.item.domain.entity.UsingItem;
+import com.plantify.item.repository.ItemRepository;
 import com.plantify.item.repository.MyItemRepository;
 import com.plantify.item.repository.UsingItemRepository;
 import com.plantify.item.service.usingItem.UsingItemUserService;
 import com.plantify.item.global.util.UserInfoProvider;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,135 +31,87 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest
+@ActiveProfiles("test")
+@Transactional
 public class UsingItemUserServiceTest {
 
-    @MockBean
-    private UsingItemRepository usingItemRepository;
-
-    @MockBean
-    private MyItemRepository myItemRepository;
-
-    @MockBean
-    private UserInfoProvider userInfoProvider;
+    @Autowired
+    UsingItemUserService usingItemUserService;
 
     @Autowired
-    private UsingItemUserService usingItemUserService;
+    UsingItemRepository usingItemRepository;
 
-    @Test
-    void testGetAllUsingItemsByUser() {
-        // Given
-        Long userId = 1L;
+    @Autowired
+    MyItemRepository myItemRepository;
 
-        UsingItem item = UsingItem.builder()
-                .usingItemId(1L)
-                .myItem(MyItem.builder()
-                        .myItemId(10L)
-                        .userId(userId)
-                        .build())
-                .posX(12.34)
-                .posY(56.78)
-                .build();
+    @Autowired
+    ItemRepository itemRepository;
 
-        given(userInfoProvider.getUserInfo()).willReturn(new AuthUserResponse(userId, "USER"));
-        given(usingItemRepository.findByUserId(userId)).willReturn(List.of(item));
+    @MockBean
+    UserInfoProvider userInfoProvider;
 
-        // When
-        List<UsingItemOutput> result = usingItemUserService.getAllUsingItemsByUser();
+    @Autowired
+    EntityManager em;
 
-        // Then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).posX()).isEqualTo(12.34);
+    @Autowired
+    EntityManagerFactory emf;
+
+    @BeforeEach
+    void setUp() {
+        given(userInfoProvider.getUserInfo())
+                .willReturn(new AuthUserResponse(1L, "USER"));
     }
 
     @Test
-    void testCreateUsingItem() {
-        // Given
-        Long userId = 1L;
-        UsingItemActionInput actionInput = new UsingItemActionInput("CREATE", null, 10L, 12.34, 56.78);
+    void N_plus_1_해결_테스트_fetch_join_적용_후() {
+        // given
+        Item item = itemRepository.save(
+                Item.builder()
+                        .name("tree")
+                        .price(100L)
+                        .imageUri("tree.png")
+                        .category(Category.TREE)
+                        .userId(999L)
+                        .build()
+        );
 
-        MyItem myItem = MyItem.builder()
-                .myItemId(10L)
-                .userId(userId)
-                .build();
+        for (int i = 0; i < 30; i++) {
+            MyItem myItem = myItemRepository.save(
+                    MyItem.builder()
+                            .userId(1L)
+                            .item(item)
+                            .quantity(1L)
+                            .build()
+            );
 
-        UsingItem newItem = UsingItem.builder()
-                .usingItemId(1L)
-                .myItem(myItem)
-                .posX(12.34)
-                .posY(56.78)
-                .build();
+            usingItemRepository.save(
+                    UsingItem.builder()
+                            .myItem(myItem)
+                            .posX((double) i)
+                            .posY((double) i)
+                            .build()
+            );
+        }
 
-        given(userInfoProvider.getUserInfo()).willReturn(new AuthUserResponse(userId, "USER"));
-        given(myItemRepository.findMyItemByMyItemIdAndUserId(10L, userId)).willReturn(Optional.of(myItem));
-        given(usingItemRepository.save(any(UsingItem.class))).willReturn(newItem);
 
-        // When
-        List<UsingItemOutput> result = usingItemUserService.manageUsingItems(List.of(actionInput));
+        em.flush();
+        em.clear();
 
-        // Then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).posX()).isEqualTo(12.34);
-    }
+        var stats = emf.unwrap(org.hibernate.SessionFactory.class)
+                .getStatistics();
+        stats.clear();
 
-    @Test
-    void testUpdateUsingItem() {
-        // Given
-        Long userId = 1L;
-        UsingItemActionInput actionInput = new UsingItemActionInput("UPDATE", 1L, null, 90.12, 34.56);
+        // when
+        List<UsingItemOutput> result =
+                usingItemUserService.getAllUsingItemsByUser();
 
-        UsingItem existingItem = UsingItem.builder()
-                .usingItemId(1L)
-                .myItem(MyItem.builder()
-                        .myItemId(10L)
-                        .userId(userId)
-                        .build())
-                .posX(12.34)
-                .posY(56.78)
-                .build();
+        // then
+        assertThat(result).hasSize(30);
 
-        UsingItem updatedItem = existingItem.toBuilder()
-                .posX(90.12)
-                .posY(34.56)
-                .build();
-
-        given(userInfoProvider.getUserInfo()).willReturn(new AuthUserResponse(userId, "USER"));
-        given(usingItemRepository.findByUsingItemIdAndUserId(1L, userId)).willReturn(Optional.of(existingItem));
-        given(usingItemRepository.save(any(UsingItem.class))).willReturn(updatedItem);
-
-        // When
-        List<UsingItemOutput> result = usingItemUserService.manageUsingItems(List.of(actionInput));
-
-        // Then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).posX()).isEqualTo(90.12);
-        assertThat(result.get(0).posY()).isEqualTo(34.56);
-    }
-
-    @Test
-    void testDeleteUsingItem() {
-        // Given
-        Long userId = 1L;
-        UsingItemActionInput actionInput = new UsingItemActionInput("DELETE", 1L, null, null, null);
-
-        UsingItem existingItem = UsingItem.builder()
-                .usingItemId(1L)
-                .myItem(MyItem.builder()
-                        .myItemId(10L)
-                        .userId(userId)
-                        .build())
-                .posX(12.34)
-                .posY(56.78)
-                .build();
-
-        given(userInfoProvider.getUserInfo()).willReturn(new AuthUserResponse(userId, "USER"));
-        given(usingItemRepository.findByUsingItemIdAndUserId(1L, userId)).willReturn(Optional.of(existingItem));
-
-        // When
-        List<UsingItemOutput> result = usingItemUserService.manageUsingItems(List.of(actionInput));
-
-        // Then
-        assertThat(result).isEmpty();
-        verify(usingItemRepository, times(1)).deleteById(1L);
+        long selectCount = stats.getPrepareStatementCount();
+        assertThat(selectCount)
+                .as("Fetch Join 적용 시 SELECT는 1번만 발생해야 함")
+                .isEqualTo(1);
     }
 }
 

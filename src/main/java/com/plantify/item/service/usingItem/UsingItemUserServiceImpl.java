@@ -1,20 +1,20 @@
 package com.plantify.item.service.usingItem;
 
+import com.plantify.item.domain.dto.UsingItemActionInput;
 import com.plantify.item.domain.dto.UsingItemOutput;
 import com.plantify.item.domain.entity.MyItem;
 import com.plantify.item.domain.entity.UsingItem;
 import com.plantify.item.global.exception.ApplicationException;
 import com.plantify.item.global.exception.errorcode.ItemErrorCode;
-import com.plantify.item.domain.dto.UsingItemActionInput;
+import com.plantify.item.global.util.UserInfoProvider;
 import com.plantify.item.repository.MyItemRepository;
 import com.plantify.item.repository.UsingItemRepository;
-import com.plantify.item.global.util.UserInfoProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,13 +27,14 @@ public class UsingItemUserServiceImpl implements UsingItemUserService {
     @Override
     public List<UsingItemOutput> getAllUsingItemsByUser() {
         Long userId = userInfoProvider.getUserInfo().userId();
-        return usingItemRepository.findByUserId(userId)
+        return usingItemRepository.findByUserIdWithItem(userId)
                 .stream()
                 .map(UsingItemOutput::from)
                 .toList();
     }
 
     @Override
+    @Transactional
     public List<UsingItemOutput> manageUsingItems(List<UsingItemActionInput> actions) {
         Long userId = userInfoProvider.getUserInfo().userId();
         return actions.stream()
